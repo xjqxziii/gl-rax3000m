@@ -573,3 +573,18 @@ define KernelPackage/fuse/description
 endef
 
 $(eval $(call KernelPackage,fuse))
+
+define KernelPackage/ramoops
+  SUBMENU:=$(FS_MENU)
+  TITLE:=Log panic/oops to a RAM buffer
+  KCONFIG:= CONFIG_PSTORE=y CONFIG_PSTORE_RAM
+  DEPENDS:= +kmod-reed-solomon
+  FILES:=$(LINUX_DIR)/fs/pstore/ramoops.ko
+  AUTOLOAD:=$(call AutoLoad,10,ramoops)
+endef
+
+define KernelPackage/ramoops/description
+ Kernel module for log panic/oops to a RAM buffer support
+endef
+
+$(eval $(call KernelPackage,ramoops))

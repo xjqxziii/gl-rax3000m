@@ -272,3 +272,12 @@ define KernelPackage/asn1-decoder
 endef
 
 $(eval $(call KernelPackage,asn1-decoder))
+
+define KernelPackage/reed-solomon
+  SUBMENU:=$(LIB_MENU)
+  TITLE:=Reed Solomon
+  HIDDEN:=1
+  FILES:=$(LINUX_DIR)/lib/reed_solomon/reed_solomon.ko
+endef
+
+$(eval $(call KernelPackage,reed-solomon))
