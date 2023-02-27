@@ -13,6 +13,12 @@ glinet,x3000-emmc)
 	ucidef_set_led_default "power"  "POWER"  "power"    "1"
         ;;
 esac
+case "$(board_name)" in
+*360,t7*)
+	ucidef_set_led_default "green" "GREEN" "360t7:green" "1"
+	ucidef_set_led_default "red" "RED" "360t7:red" "0"
+	;;
+esac
 
 board_config_flush
 
