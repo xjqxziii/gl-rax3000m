@@ -24,6 +24,8 @@ my $scriptdir = dirname($0);
 my @mirrors;
 my $ok;
 
+my $check_certificate = $ENV{DOWNLOAD_CHECK_CERTIFICATE} eq "y";
+
 $url_filename or $url_filename = $filename;
 
 sub localmirrors {
@@ -74,7 +76,7 @@ sub download_cmd($) {
 	my $url = shift;
 	my $have_curl = 0;
 
-	if (open CURL, '-|', 'curl', '--version') {
+	if (open CURL, "curl --version 2>/dev/null |") {
 		if (defined(my $line = readline CURL)) {
 			$have_curl = 1 if $line =~ /^curl /;
 		}
@@ -82,8 +84,14 @@ sub download_cmd($) {
 	}
 
 	return $have_curl
-		? (qw(curl -f --connect-timeout 20 --retry 5 --location --insecure), shellwords($ENV{CURL_OPTIONS} || ''), $url)
-		: (qw(wget --tries=5 --timeout=20 --no-check-certificate --output-document=-), shellwords($ENV{WGET_OPTIONS} || ''), $url)
+		? (qw(curl -f --connect-timeout 20 --retry 5 --location),
+			$check_certificate ? () : '--insecure',
+			shellwords($ENV{CURL_OPTIONS} || ''),
+			$url)
+		: (qw(wget --tries=5 --timeout=20 --output-document=-),
+			$check_certificate ? () : '--no-check-certificate',
+			shellwords($ENV{WGET_OPTIONS} || ''),
+			$url)
 	;
 }
 
@@ -196,7 +204,23 @@ foreach my $mirror (@ARGV) {
 		}
 	} elsif ($mirror =~ /^\@OPENWRT$/) {
 		# use OpenWrt source server directly
+	} elsif ($mirror =~ /^\@IMMORTALWRT$/) {
+		# use ImmortalWrt source server directly
+	} elsif ($mirror =~ /^\@DEBIAN\/(.+)$/) {
+		push @mirrors, "https://mirrors.tencent.com/debian/$1";
+		push @mirrors, "https://mirrors.aliyun.com/debian/$1";
+		push @mirrors, "https://mirrors.tuna.tsinghua.edu.cn/debian/$1";
+		push @mirrors, "https://mirrors.ustc.edu.cn/debian/$1";
+		push @mirrors, "https://ftp.debian.org/debian/$1";
+		push @mirrors, "https://mirror.leaseweb.com/debian/$1";
+		push @mirrors, "https://mirror.netcologne.de/debian/$1";
+		push @mirrors, "https://mirrors.tuna.tsinghua.edu.cn/debian/$1";
+		push @mirrors, "https://mirrors.ustc.edu.cn/debian/$1"
 	} elsif ($mirror =~ /^\@APACHE\/(.+)$/) {
+		push @mirrors, "https://mirrors.tencent.com/apache/$1";
+		push @mirrors, "https://mirrors.aliyun.com/apache/$1";
+		push @mirrors, "https://mirrors.tuna.tsinghua.edu.cn/apache/$1";
+		push @mirrors, "https://mirrors.ustc.edu.cn/apache/$1";
 		push @mirrors, "https://mirror.netcologne.de/apache.org/$1";
 		push @mirrors, "https://mirror.aarnet.edu.au/pub/apache/$1";
 		push @mirrors, "https://mirror.csclub.uwaterloo.ca/apache/$1";
@@ -207,11 +231,21 @@ foreach my $mirror (@ARGV) {
 		push @mirrors, "ftp://apache.cs.utah.edu/apache.org/$1";
 		push @mirrors, "ftp://apache.mirrors.ovh.net/ftp.apache.org/dist/$1";
 	} elsif ($mirror =~ /^\@GITHUB\/(.+)$/) {
+		my $dir = $1;
+		my $i = 0;
+		# replace the 2nd '/' with '@' for jsDelivr mirror
+		push @mirrors, "https://cdn.jsdelivr.net/gh/". $dir =~ s{\/}{++$i == 2 ? '@' : $&}ger;
+		push @mirrors, "https://raw.sevencdn.com/$dir";
+		push @mirrors, "https://raw.fastgit.org/$dir";
 		# give github a few more tries (different mirrors)
 		for (1 .. 5) {
-			push @mirrors, "https://raw.githubusercontent.com/$1";
+			push @mirrors, "https://raw.githubusercontent.com/$dir";
 		}
 	} elsif ($mirror =~ /^\@GNU\/(.+)$/) {
+		push @mirrors, "https://mirrors.tencent.com/gnu/$1";
+		push @mirrors, "https://mirrors.aliyun.com/gnu/$1";
+		push @mirrors, "https://mirrors.tuna.tsinghua.edu.cn/gnu/$1";
+		push @mirrors, "https://mirrors.ustc.edu.cn/gnu/$1";
 		push @mirrors, "https://mirror.csclub.uwaterloo.ca/gnu/$1";
 		push @mirrors, "https://mirror.netcologne.de/gnu/$1";
 		push @mirrors, "http://ftp.kddilabs.jp/GNU/gnu/$1";
@@ -236,7 +270,11 @@ foreach my $mirror (@ARGV) {
 			push @extra, "$extra[0]/longterm/v$1";
 		}
 		foreach my $dir (@extra) {
+			push @mirrors, "https://mirror.iscas.ac.cn/kernel.org/$dir";
+			push @mirrors, "https://mirrors.ustc.edu.cn/kernel.org/$dir";
+			push @mirrors, "https://mirror.nju.edu.cn/kernel.org/$dir";
 			push @mirrors, "https://cdn.kernel.org/pub/$dir";
+			push @mirrors, "https://ftp.jaist.ac.jp/pub/Linux/kernel.org/$dir";
 			push @mirrors, "https://download.xs4all.nl/ftp.kernel.org/pub/$dir";
 			push @mirrors, "https://mirrors.mit.edu/kernel/$dir";
 			push @mirrors, "http://ftp.nara.wide.ad.jp/pub/kernel.org/$dir";
@@ -245,6 +283,9 @@ foreach my $mirror (@ARGV) {
 			push @mirrors, "ftp://www.mirrorservice.org/sites/ftp.kernel.org/pub/$dir";
 		}
 	} elsif ($mirror =~ /^\@GNOME\/(.+)$/) {
+		push @mirrors, "https://mirrors.ustc.edu.cn/gnome/sources/$1";
+		push @mirrors, "https://mirror.nju.edu.cn/gnome/$1";
+		push @mirrors, "https://download.gnome.org/sources/$1";
 		push @mirrors, "https://mirror.csclub.uwaterloo.ca/gnome/sources/$1";
 		push @mirrors, "http://ftp.acc.umu.se/pub/GNOME/sources/$1";
 		push @mirrors, "http://ftp.kaist.ac.kr/gnome/sources/$1";
@@ -258,6 +299,11 @@ foreach my $mirror (@ARGV) {
 	}
 }
 
+# push @mirrors, 'https://mirror01.download.immortalwrt.eu.org';
+push @mirrors, 'https://mirror2.immortalwrt.org/sources';
+push @mirrors, 'https://mirror.immortalwrt.org/sources';
+push @mirrors, 'https://sources-cdn.immortalwrt.org';
+push @mirrors, 'https://sources.immortalwrt.org';
 push @mirrors, 'https://sources.cdn.openwrt.org';
 push @mirrors, 'https://sources.openwrt.org';
 push @mirrors, 'https://mirror2.openwrt.org/sources';

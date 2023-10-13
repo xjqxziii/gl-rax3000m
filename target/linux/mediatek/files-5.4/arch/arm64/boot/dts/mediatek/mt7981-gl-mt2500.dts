@@ -25,7 +25,7 @@
 		model = "mt2500";
 		wan = "eth0";
 		lan = "eth1";
-		usb-port = "1-1,2-1";
+		usb-port = "1-1";
 		flash_size = <8192>;
 		temperature = "/sys/devices/virtual/thermal/thermal_zone0/temp";
 		factory_data {
@@ -33,7 +33,6 @@
 			device_ddns = "/dev/mmcblk0boot1", "0x10";
 			device_sn_bak = "/dev/mmcblk0boot1", "0x20";
 			device_sn = "/dev/mmcblk0boot1", "0x30";
-			country_code = "/dev/mmcblk0boot1", "0x88";
 		};
 	};
 

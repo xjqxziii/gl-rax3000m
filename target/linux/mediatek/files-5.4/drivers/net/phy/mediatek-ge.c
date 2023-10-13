@@ -77,6 +77,9 @@ enum {
 #define MTK_PHY_TANA_CAL_MODE		(0xc1)
 #define MTK_PHY_TANA_CAL_MODE_SHIFT	(8)
 
+#define MTK_PHY_RXADC_CTRL_RG7		(0xc6)
+#define   MTK_PHY_DA_AD_BUF_BIAS_LP_MASK	GENMASK(9, 8)
+
 #define MTK_PHY_RXADC_CTRL_RG9		(0xc8)
 #define   MTK_PHY_DA_RX_PSBN_TBT_MASK	GENMASK(14, 12)
 #define   MTK_PHY_DA_RX_PSBN_HBT_MASK	GENMASK(10, 8)
@@ -104,6 +107,8 @@ enum {
 #define MTK_PHY_RG_ANA_CAL_RG5		(0xe0)
 #define   MTK_PHY_RG_REXT_TRIM_MASK	GENMASK(13, 8)
 #define   MTK_PHY_RG_ZCAL_CTRL_MASK	GENMASK(5, 0)
+
+#define MTK_PHY_RG_TX_FILTER		(0xfe)
 
 #define MTK_PHY_RG_DEV1E_REG172		(0x172)
 #define   MTK_PHY_CR_TX_AMP_OFFSET_A_MASK	GENMASK(13, 8)
@@ -278,6 +283,10 @@ const char pair[4] = {'A', 'B', 'C', 'D'};
 		ret = -EIO;						\
 		goto out;						\
 	}
+
+#define MTK_PHY_RG_DEV1E_REG2C7		0x2c7
+#define   MTK_PHY_MAX_GAIN_MASK		GENMASK(4, 0)
+#define   MTK_PHY_MIN_GAIN_MASK		GENMASK(12, 8)
 
 static int mtk_gephy_read_page(struct phy_device *phydev)
 {
@@ -840,6 +849,11 @@ static int mt7531_phy_config_init(struct phy_device *phydev)
 	phy_write_mmd(phydev, MDIO_MMD_VEND1, 0x13, 0x404);
 	phy_write_mmd(phydev, MDIO_MMD_VEND1, 0x14, 0x404);
 
+	/* Adjust RX min/max gain to fix CH395 100Mbps link up fail */
+	phy_write_mmd(phydev, MDIO_MMD_VEND1, MTK_PHY_RG_DEV1E_REG2C7,
+		      FIELD_PREP(MTK_PHY_MAX_GAIN_MASK, 0x8) |
+		      FIELD_PREP(MTK_PHY_MIN_GAIN_MASK, 0x13));
+
 	return 0;
 }
 
@@ -882,6 +896,13 @@ static inline void mt7988_phy_finetune(struct phy_device *phydev)
 	for(i=0; i<MTK_PHY_TX_MLT3_END; i++) {
 		phy_write_mmd(phydev, MDIO_MMD_VEND1, i, val[i]);
 	}
+
+	/* TCT finetune */
+	phy_write_mmd(phydev, MDIO_MMD_VEND1, MTK_PHY_RG_TX_FILTER, 0x5);
+
+	/* Disable TX power saving */
+	phy_modify_mmd(phydev, MDIO_MMD_VEND1, MTK_PHY_RXADC_CTRL_RG7,
+			MTK_PHY_DA_AD_BUF_BIAS_LP_MASK, 0x3 << 8);
 }
 
 static int mt798x_phy_calibration(struct phy_device *phydev)

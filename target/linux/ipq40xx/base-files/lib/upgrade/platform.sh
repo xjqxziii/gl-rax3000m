@@ -6,8 +6,8 @@ RAMFS_COPY_DATA='/etc/fw_env.config /var/lock/fw_printenv.lock'
 
 platform_check_image() {
 	case "$(board_name)" in
+	asus,rt-ac42u |\
 	asus,rt-ac58u)
-		CI_UBIPART="UBI_DEV"
 		local ubidev=$(nand_find_ubi $CI_UBIPART)
 		local asus_root=$(nand_find_volume $ubidev jffs2)
 
@@ -90,8 +90,8 @@ platform_do_upgrade() {
 		CI_KERNPART="linux"
 		nand_do_upgrade "$1"
 		;;
+	asus,rt-ac42u |\
 	asus,rt-ac58u)
-		CI_UBIPART="UBI_DEV"
 		CI_KERNPART="linux"
 		nand_do_upgrade "$1"
 		;;
@@ -99,7 +99,9 @@ platform_do_upgrade() {
 		CI_UBIPART="ubifs"
 		askey_do_upgrade "$1"
 		;;
-	compex,wpj419)
+	compex,wpj419|\
+	p2w,r619ac|\
+	p2w,r619ac-128m)
 		nand_do_upgrade "$1"
 		;;
 	linksys,ea6350v3 |\

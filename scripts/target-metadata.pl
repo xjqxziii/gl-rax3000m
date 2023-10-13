@@ -14,6 +14,7 @@ sub target_config_features(@) {
 		/^audio$/ and $ret .= "\tselect AUDIO_SUPPORT\n";
 		/^display$/ and $ret .= "\tselect DISPLAY_SUPPORT\n";
 		/^dt$/ and $ret .= "\tselect USES_DEVICETREE\n";
+		/^emmc$/ and $ret .= "\tselect EMMC_SUPPORT\n";
 		/^gpio$/ and $ret .= "\tselect GPIO_SUPPORT\n";
 		/^pci$/ and $ret .= "\tselect PCI_SUPPORT\n";
 		/^pcie$/ and $ret .= "\tselect PCIE_SUPPORT\n";
@@ -175,7 +176,7 @@ EOF
 	print <<EOF;
 choice
 	prompt "Target System"
-	default TARGET_ath79
+	default TARGET_x86
 	reset if !DEVEL
 	
 EOF

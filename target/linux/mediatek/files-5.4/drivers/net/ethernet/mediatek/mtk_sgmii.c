@@ -44,16 +44,6 @@ int mtk_sgmii_setup_mode_an(struct mtk_sgmii *ss, unsigned int id)
 	if (!ss->regmap[id])
 		return -EINVAL;
 
-	/* Assert PHYA power down state */
-	regmap_write(ss->regmap[id], SGMSYS_QPHY_PWR_STATE_CTRL, SGMII_PHYA_PWD);
-
-	/* Reset SGMII PCS state */
-	regmap_write(ss->regmap[id], SGMII_RESERVED_0, SGMII_SW_RESET);
-
-	regmap_read(ss->regmap[id], ss->ana_rgc3, &val);
-	val &= ~RG_PHY_SPEED_3_125G;
-	regmap_write(ss->regmap[id], ss->ana_rgc3, val);
-
 	/* Setup the link timer and QPHY power up inside SGMIISYS */
 	regmap_write(ss->regmap[id], SGMSYS_PCS_LINK_TIMER,
 		     SGMII_LINK_TIMER_DEFAULT);
@@ -62,14 +52,8 @@ int mtk_sgmii_setup_mode_an(struct mtk_sgmii *ss, unsigned int id)
 	val |= SGMII_REMOTE_FAULT_DIS;
 	regmap_write(ss->regmap[id], SGMSYS_SGMII_MODE, val);
 
-	/* SGMII AN mode setting */
-	regmap_read(ss->regmap[id], SGMSYS_SGMII_MODE, &val);
-	val &= ~SGMII_IF_MODE_MASK;
-	val |= SGMII_SPEED_DUPLEX_AN;
-	regmap_write(ss->regmap[id], SGMSYS_SGMII_MODE, val);
-
 	regmap_read(ss->regmap[id], SGMSYS_PCS_CONTROL_1, &val);
-	val |= SGMII_AN_ENABLE;
+	val |= SGMII_AN_RESTART;
 	regmap_write(ss->regmap[id], SGMSYS_PCS_CONTROL_1, val);
 
 	if(MTK_HAS_FLAGS(ss->flags[id],MTK_SGMII_PN_SWAP))
@@ -90,12 +74,6 @@ int mtk_sgmii_setup_mode_force(struct mtk_sgmii *ss, unsigned int id,
 	if (!ss->regmap[id])
 		return -EINVAL;
 
-	/* Assert PHYA power down state */
-	regmap_write(ss->regmap[id], SGMSYS_QPHY_PWR_STATE_CTRL, SGMII_PHYA_PWD);
-
-	/* Reset SGMII PCS state */
-	regmap_write(ss->regmap[id], SGMII_RESERVED_0, SGMII_SW_RESET);
-
 	regmap_read(ss->regmap[id], ss->ana_rgc3, &val);
 	val &= ~RG_PHY_SPEED_MASK;
 	if (state->interface == PHY_INTERFACE_MODE_2500BASEX)
@@ -110,7 +88,6 @@ int mtk_sgmii_setup_mode_force(struct mtk_sgmii *ss, unsigned int id,
 	/* SGMII force mode setting */
 	regmap_read(ss->regmap[id], SGMSYS_SGMII_MODE, &val);
 	val &= ~SGMII_IF_MODE_MASK;
-	val &= ~SGMII_REMOTE_FAULT_DIS;
 
 	switch (state->speed) {
 	case SPEED_10:
@@ -125,10 +102,7 @@ int mtk_sgmii_setup_mode_force(struct mtk_sgmii *ss, unsigned int id,
 		break;
 	};
 
-	/* SGMII 1G and 2.5G force mode can only work in full duplex
-	 * mode, no matter SGMII_FORCE_HALF_DUPLEX is set or not.
-	 */
-	if (state->duplex != DUPLEX_FULL)
+	if (state->duplex == DUPLEX_FULL)
 		val |= SGMII_DUPLEX_FULL;
 
 	regmap_write(ss->regmap[id], SGMSYS_SGMII_MODE, val);

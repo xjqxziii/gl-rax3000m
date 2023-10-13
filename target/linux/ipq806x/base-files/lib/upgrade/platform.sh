@@ -10,15 +10,7 @@ platform_check_image() {
 
 platform_do_upgrade() {
 	case "$(board_name)" in
-	asrock,g10)
-		asrock_upgrade_prepare
-		nand_do_upgrade "$1"
-		;;
-	buffalo,wxr-2533dhp)
-		buffalo_upgrade_prepare_ubi
-		CI_ROOTPART="ubi_rootfs"
-		nand_do_upgrade "$1"
-		;;
+	askey,rt4230w-rev6 |\
 	compex,wpq864|\
 	netgear,d7800 |\
 	netgear,r7500 |\
@@ -26,6 +18,15 @@ platform_do_upgrade() {
 	netgear,r7800 |\
 	qcom,ipq8064-ap148 |\
 	qcom,ipq8064-ap161)
+		nand_do_upgrade "$1"
+		;;
+	asrock,g10)
+		asrock_upgrade_prepare
+		nand_do_upgrade "$1"
+		;;
+	buffalo,wxr-2533dhp)
+		buffalo_upgrade_prepare_ubi
+		CI_ROOTPART="ubi_rootfs"
 		nand_do_upgrade "$1"
 		;;
 	edgecore,ecw5410)
@@ -43,6 +44,9 @@ platform_do_upgrade() {
 	linksys,ea8500)
 		platform_do_upgrade_linksys "$1"
 		;;
+	ruijie,rg-mtfi-m520)
+		ruijie_do_upgrade "$1"
+		;;
 	tplink,ad7200 |\
 	tplink,c2600)
 		PART_NAME="os-image:rootfs"
@@ -53,6 +57,9 @@ platform_do_upgrade() {
 		PART_NAME="kernel:rootfs"
 		MTD_CONFIG_ARGS="-s 0x200000"
 		default_do_upgrade "$1"
+		;;
+	xiaomi,mi-router-hd)
+		platform_do_upgrade_xiaomi "$1" 0x2800000
 		;;
 	zyxel,nbg6817)
 		zyxel_do_upgrade "$1"

@@ -7,9 +7,9 @@
 ###
 ### The script compares locally compiled package with the package indexes
 ### available upstream. This way the storage impact of optimizations or
-### feature modifiactions is easy to see.
+### feature modifications is easy to see.
 ###
-### If no environmental variables are set the scritp reads the current
+### If no environmental variables are set the script reads the current
 ### .config file. The evaluated env variables are the following:
 ###
 ###   TARGET SUBTARGET ARCH PACKAGES BIN_DIR BASE_URL CHECK_INSTALLED
@@ -32,7 +32,7 @@ SUBTARGET=${SUBTARGET:-$CONFIG_SUBTARGET}
 ARCH=${ARCH:-$CONFIG_ARCH}
 PACKAGES=${PACKAGES:-$CONFIG_PACKAGES}
 BIN_DIR=${CONFIG_BIN_DIR:-./bin}
-BASE_URL="${BASE_URL:-https://downloads.openwrt.org/snapshots}"
+BASE_URL="${BASE_URL:-https://downloads.immortalwrt.org/snapshots}"
 CHECK_INSTALLED="${CHECK_INSTALLED:-y}"
 
 TARGET_URL="$BASE_URL/targets/$TARGET/$SUBTARGET/packages/Packages.gz"

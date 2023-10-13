@@ -172,59 +172,8 @@ define Device/mt7981-fpga-sd
 endef
 TARGET_DEVICES += mt7981-fpga-sd
 
-define Device/glinet_gl-mt3000
-  DEVICE_VENDOR := GL.iNet
-  DEVICE_MODEL := GL-MT3000
-  DEVICE_DTS := mt7981-gl-mt3000
-  DEVICE_DTS_DIR := $(DTS_DIR)/mediatek
-  SUPPORTED_DEVICES := glinet,mt3000-snand
-  DEVICE_PACKAGES := kmod-hwmon-pwmfan
-  UBINIZE_OPTS := -E 5
-  BLOCKSIZE := 128k
-  PAGESIZE := 2048
-  IMAGE_SIZE := 65536k
-  KERNEL_IN_UBI := 1
-  IMAGES := factory.img sysupgrade.tar
-  IMAGE/factory.img := append-ubi | check-size $$$$(IMAGE_SIZE)
-  IMAGE/sysupgrade.tar := sysupgrade-tar | append-gl-metadata
-endef
-TARGET_DEVICES += glinet_gl-mt3000
-
-define Device/glinet_gl-x3000
-  DEVICE_VENDOR := GL.iNet
-  DEVICE_MODEL := GL-X3000
-  DEVICE_DTS := mt7981-gl-x3000
-  DEVICE_DTS_DIR := $(DTS_DIR)/mediatek
-  SUPPORTED_DEVICES := glinet,x3000-emmc
-  DEVICE_PACKAGES := kmod-hwmon-pwmfan mkf2fs kmod-mmc kmod-fs-f2fs gdisk
-  IMAGE/sysupgrade.bin := sysupgrade-tar | append-gl-metadata
-endef
-TARGET_DEVICES += glinet_gl-x3000
-
-define Device/glinet_gl-xe3000
-  DEVICE_VENDOR := GL.iNet
-  DEVICE_MODEL := GL-XE3000
-  DEVICE_DTS := mt7981-gl-xe3000
-  DEVICE_DTS_DIR := $(DTS_DIR)/mediatek
-  SUPPORTED_DEVICES := glinet,xe3000-emmc
-  DEVICE_PACKAGES := kmod-hwmon-pwmfan mkf2fs kmod-mmc kmod-fs-f2fs gdisk
-  IMAGE/sysupgrade.bin := sysupgrade-tar | append-gl-metadata
-endef
-TARGET_DEVICES += glinet_gl-xe3000
-
-define Device/glinet_gl-mt2500
-  DEVICE_VENDOR := GL.iNet
-  DEVICE_MODEL := GL-MT2500
-  DEVICE_DTS := mt7981-gl-mt2500
-  SUPPORTED_DEVICES := glinet,mt2500-emmc
-  DEVICE_DTS_DIR := $(DTS_DIR)/mediatek
-  DEVICE_PACKAGES := mkf2fs kmod-mmc kmod-fs-f2fs gdisk
-  IMAGE/sysupgrade.bin := sysupgrade-tar | append-gl-metadata
-endef
-TARGET_DEVICES += glinet_gl-mt2500
-
 define Device/mt7981-360-t7
-  DEVICE_VENDOR := GL.iNet
+  DEVICE_VENDOR := MediaTek
   DEVICE_MODEL := 360 T7
   DEVICE_DTS := mt7981-360-t7
   DEVICE_DTS_DIR := $(DTS_DIR)/mediatek
@@ -241,7 +190,7 @@ endef
 TARGET_DEVICES += mt7981-360-t7
 
 define Device/mt7981-360-t7-108M
-  DEVICE_VENDOR := GL.iNet
+  DEVICE_VENDOR := MediaTek
   DEVICE_MODEL := 360 T7 (with 108M ubi)
   DEVICE_DTS := mt7981-360-t7-108M
   DEVICE_DTS_DIR := $(DTS_DIR)/mediatek
@@ -257,3 +206,238 @@ define Device/mt7981-360-t7-108M
 endef
 TARGET_DEVICES += mt7981-360-t7-108M
 
+define Device/cetron_ct3003
+  DEVICE_VENDOR := CETRON
+  DEVICE_MODEL := CT3003
+  DEVICE_DTS := mt7981-cetron-ct3003
+  DEVICE_DTS_DIR := $(DTS_DIR)/mediatek
+  SUPPORTED_DEVICES := cetron,ct3003
+  UBINIZE_OPTS := -E 5
+  BLOCKSIZE := 128k
+  PAGESIZE := 2048
+  IMAGE_SIZE := 114816k
+  KERNEL_IN_UBI := 1
+  IMAGES += factory.bin
+  IMAGE/factory.bin := append-ubi | check-size $$$$(IMAGE_SIZE)
+  IMAGE/sysupgrade.bin := sysupgrade-tar | append-metadata
+endef
+TARGET_DEVICES += cetron_ct3003
+
+define Device/mt7981-clt-r30b1
+  DEVICE_VENDOR := MediaTek
+  DEVICE_MODEL := CLT R30B1
+  DEVICE_DTS := mt7981-clt-r30b1
+  DEVICE_DTS_DIR := $(DTS_DIR)/mediatek
+  SUPPORTED_DEVICES := clt,30rb1
+  UBINIZE_OPTS := -E 5
+  BLOCKSIZE := 128k
+  PAGESIZE := 2048
+  IMAGE_SIZE := 65536k
+  KERNEL_IN_UBI := 1
+  IMAGES += factory.bin
+  IMAGE/factory.bin := append-ubi | check-size $$$$(IMAGE_SIZE)
+  IMAGE/sysupgrade.bin := sysupgrade-tar | append-metadata
+endef
+TARGET_DEVICES += mt7981-clt-r30b1
+
+define Device/mt7981-clt-r30b1-112M
+  DEVICE_VENDOR := MediaTek
+  DEVICE_MODEL := CLT R30B1 (with 112M ubi)
+  DEVICE_DTS := mt7981-clt-r30b1-112M
+  DEVICE_DTS_DIR := $(DTS_DIR)/mediatek
+  SUPPORTED_DEVICES := clt,r30b1
+  UBINIZE_OPTS := -E 5
+  BLOCKSIZE := 128k
+  PAGESIZE := 2048
+  IMAGE_SIZE := 114688k
+  KERNEL_IN_UBI := 1
+  IMAGES += factory.bin
+  IMAGE/factory.bin := append-ubi | check-size $$$$(IMAGE_SIZE)
+  IMAGE/sysupgrade.bin := sysupgrade-tar | append-metadata
+endef
+TARGET_DEVICES += mt7981-clt-r30b1-112M
+
+define Device/xiaomi_mi-router-wr30u-stock
+  DEVICE_VENDOR := Xiaomi
+  DEVICE_MODEL := Mi Router WR30U (stock layout)
+  DEVICE_DTS := mt7981-xiaomi-mi-router-wr30u-stock
+  DEVICE_DTS_DIR := $(DTS_DIR)/mediatek
+  UBINIZE_OPTS := -E 5
+  BLOCKSIZE := 128k
+  PAGESIZE := 2048
+  IMAGE_SIZE := 34816k
+  IMAGE/sysupgrade.bin := sysupgrade-tar | append-metadata
+endef
+TARGET_DEVICES += xiaomi_mi-router-wr30u-stock
+
+define Device/xiaomi_mi-router-wr30u-112m
+  DEVICE_VENDOR := Xiaomi
+  DEVICE_MODEL := Mi Router WR30U (112M UBI layout)
+  DEVICE_DTS := mt7981-xiaomi-mi-router-wr30u-112m
+  DEVICE_DTS_DIR := $(DTS_DIR)/mediatek
+  UBINIZE_OPTS := -E 5
+  BLOCKSIZE := 128k
+  PAGESIZE := 2048
+  IMAGE_SIZE := 114688k
+  KERNEL_IN_UBI := 1
+  IMAGES += factory.ubi
+  IMAGE/factory.ubi := append-ubi | check-size $$$$(IMAGE_SIZE)
+  IMAGE/sysupgrade.bin := sysupgrade-tar | append-metadata
+endef
+TARGET_DEVICES += xiaomi_mi-router-wr30u-112m
+
+define Device/glinet_gl-mt3000
+  DEVICE_VENDOR := GL.iNet
+  DEVICE_MODEL := GL-MT3000
+  DEVICE_DTS := mt7981-gl-mt3000
+  DEVICE_DTS_DIR := $(DTS_DIR)/mediatek
+  SUPPORTED_DEVICES := glinet,mt3000-snand
+  DEVICE_PACKAGES := kmod-hwmon-pwmfan
+  UBINIZE_OPTS := -E 5
+  BLOCKSIZE := 128k
+  PAGESIZE := 2048
+  IMAGE_SIZE := 65536k
+  KERNEL_IN_UBI := 1
+  IMAGES := sysupgrade.tar
+  IMAGE/sysupgrade.tar := sysupgrade-tar | append-metadata
+endef
+TARGET_DEVICES += glinet_gl-mt3000
+
+define Device/glinet_gl-x3000
+  DEVICE_VENDOR := GL.iNet
+  DEVICE_MODEL := GL-X3000
+  DEVICE_DTS := mt7981-gl-x3000
+  DEVICE_DTS_DIR := $(DTS_DIR)/mediatek
+  SUPPORTED_DEVICES := glinet,x3000-emmc
+  DEVICE_PACKAGES := kmod-hwmon-pwmfan mkf2fs kmod-mmc kmod-fs-f2fs gdisk
+  IMAGE/sysupgrade.bin := sysupgrade-tar | append-metadata
+endef
+TARGET_DEVICES += glinet_gl-x3000
+
+define Device/glinet_gl-xe3000
+  DEVICE_VENDOR := GL.iNet
+  DEVICE_MODEL := GL-XE3000
+  DEVICE_DTS := mt7981-gl-xe3000
+  DEVICE_DTS_DIR := $(DTS_DIR)/mediatek
+  SUPPORTED_DEVICES := glinet,xe3000-emmc
+  DEVICE_PACKAGES := kmod-hwmon-pwmfan mkf2fs kmod-mmc kmod-fs-f2fs gdisk
+  IMAGE/sysupgrade.bin := sysupgrade-tar | append-metadata
+endef
+TARGET_DEVICES += glinet_gl-xe3000
+
+define Device/glinet_gl-mt2500
+  DEVICE_VENDOR := GL.iNet
+  DEVICE_MODEL := GL-MT2500
+  DEVICE_DTS := mt7981-gl-mt2500
+  SUPPORTED_DEVICES := glinet,mt2500-emmc
+  DEVICE_DTS_DIR := $(DTS_DIR)/mediatek
+  DEVICE_PACKAGES := mkf2fs kmod-mmc kmod-fs-f2fs gdisk
+  IMAGE/sysupgrade.bin := sysupgrade-tar | append-metadata
+endef
+TARGET_DEVICES += glinet_gl-mt2500
+
+define Device/jcg_q30
+  DEVICE_VENDOR := JCG
+  DEVICE_MODEL := Q30
+  DEVICE_DTS := mt7981-jcg-q30
+  DEVICE_DTS_DIR := $(DTS_DIR)/mediatek
+  SUPPORTED_DEVICES := jcg,q30
+  UBINIZE_OPTS := -E 5
+  BLOCKSIZE := 128k
+  PAGESIZE := 2048
+  IMAGE_SIZE := 114816k
+  KERNEL_IN_UBI := 1
+  IMAGES += factory.bin
+  IMAGE/factory.bin := append-ubi | check-size $$$$(IMAGE_SIZE)
+  IMAGE/sysupgrade.bin := sysupgrade-tar | append-metadata
+endef
+TARGET_DEVICES += jcg_q30
+
+define Device/livinet_zr-3020
+  DEVICE_VENDOR := Livinet
+  DEVICE_MODEL := ZR-3020
+  DEVICE_DTS := mt7981-zr-3020
+  DEVICE_DTS_DIR := $(DTS_DIR)/mediatek
+  SUPPORTED_DEVICES := livinet,zr-3020 mediatek,mt7981-spim-snand-gsw-rfb
+  UBINIZE_OPTS := -E 5
+  BLOCKSIZE := 128k
+  PAGESIZE := 2048
+  IMAGE_SIZE := 65536k
+  KERNEL_IN_UBI := 1
+  IMAGES += factory.bin
+  IMAGE/factory.bin := append-ubi | check-size $$$$(IMAGE_SIZE)
+  IMAGE/sysupgrade.bin := sysupgrade-tar | append-metadata
+endef
+TARGET_DEVICES += livinet_zr-3020
+
+define Device/cmcc_rax3000m
+  DEVICE_VENDOR := CMCC
+  DEVICE_MODEL := RAX3000M
+  DEVICE_DTS := mt7981-cmcc-rax3000m
+  DEVICE_DTS_DIR := $(DTS_DIR)/mediatek
+  DEVICE_PACKAGES := automount blkid luci-app-ksmbd luci-i18n-ksmbd-zh-cn ksmbd-utils \
+			luci-app-usb-printer luci-i18n-usb-printer-zh-cn \
+			kmod-nls-cp437 kmod-nls-iso8859-1 \
+			kmod-usb-net-rndis usbutils
+  SUPPORTED_DEVICES := cmcc,rax3000m
+  UBINIZE_OPTS := -E 5
+  BLOCKSIZE := 128k
+  PAGESIZE := 2048
+  IMAGE_SIZE := 116736k
+  KERNEL_IN_UBI := 1
+  IMAGES += factory.bin
+  IMAGE/factory.bin := append-ubi | check-size $$$$(IMAGE_SIZE)
+  IMAGE/sysupgrade.bin := sysupgrade-tar | append-metadata
+endef
+TARGET_DEVICES += cmcc_rax3000m
+
+define Device/h3c_nx30pro
+  DEVICE_VENDOR := H3C
+  DEVICE_MODEL := NX30PRO
+  DEVICE_DTS := mt7981-h3c-nx30pro
+  DEVICE_DTS_DIR := $(DTS_DIR)/mediatek
+  SUPPORTED_DEVICES := h3c,nx30pro
+  UBINIZE_OPTS := -E 5
+  BLOCKSIZE := 128k
+  PAGESIZE := 2048
+  IMAGE_SIZE := 65536k
+  KERNEL_IN_UBI := 1
+  IMAGES += factory.bin
+  IMAGE/factory.bin := append-ubi | check-size $$$$(IMAGE_SIZE)
+  IMAGE/sysupgrade.bin := sysupgrade-tar | append-metadata
+endef
+TARGET_DEVICES += h3c_nx30pro
+
+define Device/konka_komi-a31
+  DEVICE_VENDOR := KONKA
+  DEVICE_MODEL := KOMI A31
+  DEVICE_DTS := mt7981-konka-komi-a31
+  DEVICE_DTS_DIR := $(DTS_DIR)/mediatek
+  SUPPORTED_DEVICES := konka,komi-a31
+  UBINIZE_OPTS := -E 5
+  BLOCKSIZE := 128k
+  PAGESIZE := 2048
+  IMAGE_SIZE := 114688k
+  KERNEL_IN_UBI := 1
+  IMAGES += factory.bin
+  IMAGE/factory.bin := append-ubi | check-size $$$$(IMAGE_SIZE)
+  IMAGE/sysupgrade.bin := sysupgrade-tar | append-metadata
+endef
+TARGET_DEVICES += konka_komi-a31
+
+define Device/imou_lc-hx3001
+  DEVICE_VENDOR := Imou
+  DEVICE_MODEL := LC-HX3001
+  DEVICE_DTS := mt7981-imou_lc-hx3001
+  DEVICE_DTS_DIR := $(DTS_DIR)/mediatek
+  SUPPORTED_DEVICES := imou,lc-hx3001
+  UBINIZE_OPTS := -E 5
+  BLOCKSIZE := 128k
+  PAGESIZE := 2048
+  IMAGE_SIZE := 114816k
+  KERNEL_IN_UBI := 1
+  IMAGES += factory.bin
+  IMAGE/factory.bin := append-ubi | check-size $$$$(IMAGE_SIZE)
+  IMAGE/sysupgrade.bin := sysupgrade-tar | append-metadata
+endef
+TARGET_DEVICES += imou_lc-hx3001

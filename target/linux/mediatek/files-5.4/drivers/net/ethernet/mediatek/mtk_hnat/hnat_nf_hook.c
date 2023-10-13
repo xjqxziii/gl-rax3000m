@@ -14,6 +14,7 @@
 #include <linux/netfilter_bridge.h>
 #include <linux/netfilter_ipv6.h>
 
+#include <linux/of.h>
 #include <net/arp.h>
 #include <net/neighbour.h>
 #include <net/netfilter/nf_conntrack_helper.h>
@@ -298,9 +299,7 @@ void foe_clear_entry(struct neighbour *neigh)
 				*((u32 *)h_dest) = swab32(entry->ipv4_hnapt.dmac_hi);
 				*((u16 *)&h_dest[4]) =
 					swab16(entry->ipv4_hnapt.dmac_lo);
-				if (!ether_addr_equal(h_dest, neigh->ha)) {
-					pr_info("%s: state=%d\n", __func__,
-						neigh->nud_state);
+				if (memcmp(h_dest, neigh->ha, ETH_ALEN) != 0) {
 					cr_set_field(hnat_priv->ppe_base[i] + PPE_TB_CFG,
 						     SMA, SMA_ONLY_FWD_CPU);
 
@@ -313,10 +312,13 @@ void foe_clear_entry(struct neighbour *neigh)
 
 					mod_timer(&hnat_priv->hnat_sma_build_entry_timer,
 						  jiffies + 3 * HZ);
-
-					pr_info("Delete old entry: dip =%pI4\n", &dip);
-					pr_info("Old mac= %pM\n", h_dest);
-					pr_info("New mac= %pM\n", neigh->ha);
+					if (debug_level >= 7) {
+						pr_info("%s: state=%d\n", __func__,
+							neigh->nud_state);
+						pr_info("Delete old entry: dip =%pI4\n", &dip);
+						pr_info("Old mac= %pM\n", h_dest);
+						pr_info("New mac= %pM\n", neigh->ha);
+					}
 				}
 			}
 		}
@@ -487,7 +489,14 @@ unsigned int do_hnat_ge_to_ext(struct sk_buff *skb, const char *func)
 	else
 		index = entry->ipv6_5t_route.act_dp;
 
-	skb->dev = get_dev_from_index(index);
+	dev = get_dev_from_index(index);
+	if (!dev) {
+		trace_printk("%s: called from %s. Get wifi interface fail\n",
+			     __func__, func);
+		return 0;
+	}
+
+	skb->dev = dev;
 
 	if (IS_HQOS_MODE && eth_hdr(skb)->h_proto == HQOS_MAGIC_TAG) {
 		skb = skb_unshare(skb, GFP_ATOMIC);
@@ -796,6 +805,12 @@ static unsigned int
 mtk_hnat_ipv6_nf_pre_routing(void *priv, struct sk_buff *skb,
 			     const struct nf_hook_state *state)
 {
+	if (!skb)
+		goto drop;
+
+	if (!is_magic_tag_valid(skb))
+		return NF_ACCEPT;
+
 	if (!is_ppe_support_type(skb)) {
 		hnat_set_head_frags(state, skb, 1, hnat_set_alg);
 		return NF_ACCEPT;
@@ -809,8 +824,6 @@ mtk_hnat_ipv6_nf_pre_routing(void *priv, struct sk_buff *skb,
 	if (do_ext2ge_fast_try(state->in, skb)) {
 		if (!do_hnat_ext_to_ge(skb, state->in, __func__))
 			return NF_STOLEN;
-		if (!skb)
-			goto drop;
 		return NF_ACCEPT;
 	}
 
@@ -841,12 +854,13 @@ mtk_hnat_ipv6_nf_pre_routing(void *priv, struct sk_buff *skb,
 
 	return NF_ACCEPT;
 drop:
-	printk_ratelimited(KERN_WARNING
-				"%s:drop (in_dev=%s, iif=0x%x, CB2=0x%x, ppe_hash=0x%x, sport=0x%x, reason=0x%x, alg=0x%x)\n",
-				__func__, state->in->name, skb_hnat_iface(skb),
-				HNAT_SKB_CB2(skb)->magic, skb_hnat_entry(skb),
-				skb_hnat_sport(skb), skb_hnat_reason(skb),
-				skb_hnat_alg(skb));
+	if (skb)
+		printk_ratelimited(KERN_WARNING
+			"%s:drop (in_dev=%s, iif=0x%x, CB2=0x%x, ppe_hash=0x%x, sport=0x%x, reason=0x%x, alg=0x%x)\n",
+			__func__, state->in->name, skb_hnat_iface(skb),
+			HNAT_SKB_CB2(skb)->magic, skb_hnat_entry(skb),
+			skb_hnat_sport(skb), skb_hnat_reason(skb),
+			skb_hnat_alg(skb));
 
 	return NF_DROP;
 }
@@ -855,6 +869,12 @@ static unsigned int
 mtk_hnat_ipv4_nf_pre_routing(void *priv, struct sk_buff *skb,
 			     const struct nf_hook_state *state)
 {
+	if (!skb)
+		goto drop;
+
+	if (!is_magic_tag_valid(skb))
+		return NF_ACCEPT;
+
 	if (!is_ppe_support_type(skb)) {
 		hnat_set_head_frags(state, skb, 1, hnat_set_alg);
 		return NF_ACCEPT;
@@ -868,8 +888,6 @@ mtk_hnat_ipv4_nf_pre_routing(void *priv, struct sk_buff *skb,
 	if (do_ext2ge_fast_try(state->in, skb)) {
 		if (!do_hnat_ext_to_ge(skb, state->in, __func__))
 			return NF_STOLEN;
-		if (!skb)
-			goto drop;
 		return NF_ACCEPT;
 	}
 
@@ -884,12 +902,13 @@ mtk_hnat_ipv4_nf_pre_routing(void *priv, struct sk_buff *skb,
 
 	return NF_ACCEPT;
 drop:
-	printk_ratelimited(KERN_WARNING
-				"%s:drop (in_dev=%s, iif=0x%x, CB2=0x%x, ppe_hash=0x%x, sport=0x%x, reason=0x%x, alg=0x%x)\n",
-				__func__, state->in->name, skb_hnat_iface(skb),
-				HNAT_SKB_CB2(skb)->magic, skb_hnat_entry(skb),
-				skb_hnat_sport(skb), skb_hnat_reason(skb),
-				skb_hnat_alg(skb));
+	if (skb)
+		printk_ratelimited(KERN_WARNING
+			"%s:drop (in_dev=%s, iif=0x%x, CB2=0x%x, ppe_hash=0x%x, sport=0x%x, reason=0x%x, alg=0x%x)\n",
+			__func__, state->in->name, skb_hnat_iface(skb),
+			HNAT_SKB_CB2(skb)->magic, skb_hnat_entry(skb),
+			skb_hnat_sport(skb), skb_hnat_reason(skb),
+			skb_hnat_alg(skb));
 
 	return NF_DROP;
 }
@@ -899,6 +918,12 @@ mtk_hnat_br_nf_local_in(void *priv, struct sk_buff *skb,
 			const struct nf_hook_state *state)
 {
 	struct vlan_ethhdr *veth;
+
+	if (!skb)
+		goto drop;
+
+	if (!is_magic_tag_valid(skb))
+		return NF_ACCEPT;
 
 	if (IS_HQOS_MODE && hnat_priv->data->whnat) {
 		veth = (struct vlan_ethhdr *)skb_mac_header(skb);
@@ -932,8 +957,6 @@ mtk_hnat_br_nf_local_in(void *priv, struct sk_buff *skb,
 
 		if (!do_hnat_ext_to_ge(skb, state->in, __func__))
 			return NF_STOLEN;
-		if (!skb)
-			goto drop;
 		return NF_ACCEPT;
 	}
 
@@ -967,12 +990,13 @@ mtk_hnat_br_nf_local_in(void *priv, struct sk_buff *skb,
 
 	return NF_ACCEPT;
 drop:
-	printk_ratelimited(KERN_WARNING
-				"%s:drop (in_dev=%s, iif=0x%x, CB2=0x%x, ppe_hash=0x%x, sport=0x%x, reason=0x%x, alg=0x%x)\n",
-				__func__, state->in->name, skb_hnat_iface(skb),
-				HNAT_SKB_CB2(skb)->magic, skb_hnat_entry(skb),
-				skb_hnat_sport(skb), skb_hnat_reason(skb),
-				skb_hnat_alg(skb));
+	if (skb)
+		printk_ratelimited(KERN_WARNING
+			"%s:drop (in_dev=%s, iif=0x%x, CB2=0x%x, ppe_hash=0x%x, sport=0x%x, reason=0x%x, alg=0x%x)\n",
+			__func__, state->in->name, skb_hnat_iface(skb),
+			HNAT_SKB_CB2(skb)->magic, skb_hnat_entry(skb),
+			skb_hnat_sport(skb), skb_hnat_reason(skb),
+			skb_hnat_alg(skb));
 
 	return NF_DROP;
 }
@@ -1176,11 +1200,15 @@ static unsigned int skb_to_hnat_info(struct sk_buff *skb,
 	struct ipv6hdr *ip6h;
 	struct tcpudphdr _ports;
 	const struct tcpudphdr *pptr;
+	struct nf_conn *ct;
+	enum ip_conntrack_info ctinfo;
 	u32 gmac = NR_DISCARD;
 	int udp = 0;
 	u32 qid = 0;
 	u32 port_id = 0;
 	int mape = 0;
+
+	ct = nf_ct_get(skb, &ctinfo);
 
 	if (ipv6_hdr(skb)->nexthdr == NEXTHDR_IPIP)
 		/* point to ethernet header for DS-Lite and MapE */
@@ -1270,13 +1298,15 @@ static unsigned int skb_to_hnat_info(struct sk_buff *skb,
 
 				entry.ipv4_hnapt.vlan1 = hw_path->vlan_id;
 
-				if (skb->vlan_tci && FROM_GE_WAN(skb) && IS_LAN(dev)) {
+				if (skb_vlan_tagged(skb)) {
 					entry.bfib1.vlan_layer += 1;
 
 					if (entry.ipv4_hnapt.vlan1)
-						entry.ipv4_hnapt.vlan2 = (skb->vlan_tci & VLAN_VID_MASK);
+						entry.ipv4_hnapt.vlan2 =
+							skb->vlan_tci;
 					else
-						entry.ipv4_hnapt.vlan1 = (skb->vlan_tci & VLAN_VID_MASK);
+						entry.ipv4_hnapt.vlan1 =
+							skb->vlan_tci;
 				}
 
 				entry.ipv4_hnapt.sip = foe->ipv4_hnapt.sip;
@@ -1322,13 +1352,15 @@ static unsigned int skb_to_hnat_info(struct sk_buff *skb,
 
 			entry.ipv6_5t_route.vlan1 = hw_path->vlan_id;
 
-			if (skb->vlan_tci && FROM_GE_WAN(skb) && IS_LAN(dev)) {
+			if (skb_vlan_tagged(skb)) {
 				entry.bfib1.vlan_layer += 1;
 
 				if (entry.ipv6_5t_route.vlan1)
-					entry.ipv6_5t_route.vlan2 = (skb->vlan_tci & VLAN_VID_MASK);
+					entry.ipv6_5t_route.vlan2 =
+						skb->vlan_tci;
 				else
-					entry.ipv6_5t_route.vlan1 = (skb->vlan_tci & VLAN_VID_MASK);
+					entry.ipv6_5t_route.vlan1 =
+						skb->vlan_tci;
 			}
 
 			if (hnat_priv->data->per_flow_accounting)
@@ -1374,6 +1406,11 @@ static unsigned int skb_to_hnat_info(struct sk_buff *skb,
 				entry.ipv6_5t_route.dport =
 					foe->ipv6_5t_route.dport;
 			}
+
+			if (ct && (ct->status & IPS_SRC_NAT)) {
+				return -1;
+			}
+
 			entry.ipv6_5t_route.iblk2.dscp =
 				(ip6h->priority << 4 |
 				 (ip6h->flow_lbl[0] >> 4));
@@ -1530,8 +1567,12 @@ static unsigned int skb_to_hnat_info(struct sk_buff *skb,
 		if (IS_BOND_MODE)
 			gmac = ((skb_hnat_entry(skb) >> 1) % hnat_priv->gmac_num) ?
 				 NR_GMAC2_PORT : NR_GMAC1_PORT;
-		else
-			gmac = NR_GMAC2_PORT;
+		else {
+			if (of_machine_is_compatible("glinet,gl-mt3000")||of_machine_is_compatible("glinet,mt3000-snand"))
+				gmac = NR_GMAC2_PORT;
+			else
+				gmac = NR_GMAC1_PORT;
+		}
 	} else if (IS_WAN(dev)) {
 		if (IS_DSA_WAN(dev))
 			port_id = hnat_dsa_fill_stag(dev,&entry, hw_path,
@@ -1542,7 +1583,10 @@ static unsigned int skb_to_hnat_info(struct sk_buff *skb,
 			/* Set act_dp = wan_dev */
 			entry.ipv4_hnapt.act_dp = dev->ifindex;
 		} else {
-			gmac = NR_GMAC1_PORT;
+			if (of_machine_is_compatible("glinet,gl-mt3000")||of_machine_is_compatible("glinet,mt3000-snand"))
+				gmac = NR_GMAC1_PORT;
+			else
+				gmac = (IS_GMAC1_MODE) ? NR_GMAC1_PORT : NR_GMAC2_PORT;
 		}
 	} else if (IS_EXT(dev) && (FROM_GE_PPD(skb) || FROM_GE_LAN(skb) ||
 		   FROM_GE_WAN(skb) || FROM_GE_VIRTUAL(skb) || FROM_WED(skb))) {
@@ -1576,8 +1620,7 @@ static unsigned int skb_to_hnat_info(struct sk_buff *skb,
 
 	if (IS_HQOS_MODE || skb->mark >= MAX_PPPQ_PORT_NUM)
 		qid = skb->mark & (MTK_QDMA_TX_MASK);
-	else if (IS_PPPQ_MODE && (IS_DSA_1G_LAN(dev) || IS_DSA_WAN(dev) ||
-		 (FROM_WED(skb) && IS_DSA_LAN(dev))))
+	else if (IS_PPPQ_MODE && (IS_DSA_1G_LAN(dev) || IS_DSA_WAN(dev)))
 		qid = port_id & MTK_QDMA_TX_MASK;
 	else
 		qid = 0;
@@ -1613,8 +1656,7 @@ static unsigned int skb_to_hnat_info(struct sk_buff *skb,
 			else
 				entry.ipv4_hnapt.iblk2.fqos =
 					(!IS_PPPQ_MODE || (IS_PPPQ_MODE &&
-					 (IS_DSA_1G_LAN(dev) || IS_DSA_WAN(dev) ||
-					 (FROM_WED(skb) && IS_DSA_LAN(dev)))));
+					 (IS_DSA_1G_LAN(dev) || IS_DSA_WAN(dev))));
 		} else {
 			entry.ipv4_hnapt.iblk2.fqos = 0;
 		}
@@ -1648,8 +1690,7 @@ static unsigned int skb_to_hnat_info(struct sk_buff *skb,
 			else
 				entry.ipv6_5t_route.iblk2.fqos =
 					(!IS_PPPQ_MODE || (IS_PPPQ_MODE &&
-					 (IS_DSA_1G_LAN(dev) || IS_DSA_WAN(dev) ||
-					 (FROM_WED(skb) && IS_DSA_LAN(dev)))));
+					 (IS_DSA_1G_LAN(dev) || IS_DSA_WAN(dev))));
 		} else {
 			entry.ipv6_5t_route.iblk2.fqos = 0;
 		}
@@ -1694,6 +1735,9 @@ int mtk_sw_nat_hook_tx(struct sk_buff *skb, int gmac_no)
 
 	if ((gmac_no != NR_WDMA0_PORT) && (gmac_no != NR_WDMA1_PORT) &&
 	    (gmac_no != NR_WHNAT_WDMA_PORT))
+		return NF_ACCEPT;
+
+	if (unlikely(!skb_mac_header_was_set(skb)))
 		return NF_ACCEPT;
 
 	if (!skb_hnat_is_hashed(skb))
@@ -1743,7 +1787,7 @@ int mtk_sw_nat_hook_tx(struct sk_buff *skb, int gmac_no)
 		break;
 	}
 
-	if (skb->vlan_tci) {
+	if (skb_vlan_tagged(skb)) {
 		bfib1_tx.vlan_layer = 1;
 		bfib1_tx.vpm = 1;
 		if (IS_IPV4_GRP(entry)) {
@@ -1767,6 +1811,7 @@ int mtk_sw_nat_hook_tx(struct sk_buff *skb, int gmac_no)
 		     (gmac_no == NR_WDMA0_PORT || gmac_no == NR_WDMA1_PORT))) {
 			entry->ipv4_hnapt.winfo.bssid = skb_hnat_bss_id(skb);
 			entry->ipv4_hnapt.winfo.wcid = skb_hnat_wc_id(skb);
+			entry->ipv4_hnapt.iblk2.fqos = (IS_HQOS_MODE) ? 1 : 0;
 #if defined(CONFIG_MEDIATEK_NETSYS_V2)
 			entry->ipv4_hnapt.iblk2.rxid = skb_hnat_rx_id(skb);
 			entry->ipv4_hnapt.iblk2.winfoi = 1;
@@ -1804,6 +1849,7 @@ int mtk_sw_nat_hook_tx(struct sk_buff *skb, int gmac_no)
 		     (gmac_no == NR_WDMA0_PORT || gmac_no == NR_WDMA1_PORT))) {
 			entry->ipv6_5t_route.winfo.bssid = skb_hnat_bss_id(skb);
 			entry->ipv6_5t_route.winfo.wcid = skb_hnat_wc_id(skb);
+			entry->ipv6_5t_route.iblk2.fqos = (IS_HQOS_MODE) ? 1 : 0;
 #if defined(CONFIG_MEDIATEK_NETSYS_V2)
 			entry->ipv6_5t_route.iblk2.rxid = skb_hnat_rx_id(skb);
 			entry->ipv6_5t_route.iblk2.winfoi = 1;
@@ -1878,6 +1924,9 @@ void mtk_ppe_dev_register_hook(struct net_device *dev)
 				__func__, dev->name, i);
 			return;
 		}
+	}
+
+	for (i = 1; i < MAX_IF_NUM; i++) {
 		if (!hnat_priv->wifi_hook_if[i]) {
 			if (find_extif_from_devname(dev->name)) {
 				extif_set_dev(dev);
@@ -2027,6 +2076,9 @@ static unsigned int mtk_hnat_nf_post_routing(
 					  !IS_SPACE_AVAILABLE_HEAD(skb)))
 		return 0;
 
+	if (unlikely(!skb_mac_header_was_set(skb)))
+		return 0;
+
 	if (unlikely(!skb_hnat_is_hashed(skb)))
 		return 0;
 
@@ -2101,12 +2153,21 @@ mtk_hnat_ipv6_nf_local_out(void *priv, struct sk_buff *skb,
 	const struct tcpudphdr *pptr;
 	int udp = 0;
 
+	if (!is_magic_tag_valid(skb))
+		return NF_ACCEPT;
+
 	if (unlikely(!skb_hnat_is_hashed(skb)))
 		return NF_ACCEPT;
 
+	ip6h = ipv6_hdr(skb);
+
+	if (ip6h->nexthdr != NEXTHDR_IPIP) {
+		hnat_set_head_frags(state, skb, 1, hnat_set_alg);
+		return NF_ACCEPT;
+	}
+
 	entry = &hnat_priv->foe_table_cpu[skb_hnat_ppe(skb)][skb_hnat_entry(skb)];
 	if (skb_hnat_reason(skb) == HIT_UNBIND_RATE_REACH) {
-		ip6h = ipv6_hdr(skb);
 		if (ip6h->nexthdr == NEXTHDR_IPIP) {
 			/* Map-E LAN->WAN: need to record orig info before fn. */
 			if (mape_toggle) {
@@ -2159,17 +2220,22 @@ static unsigned int
 mtk_hnat_ipv6_nf_post_routing(void *priv, struct sk_buff *skb,
 			      const struct nf_hook_state *state)
 {
+	if (!skb)
+		goto drop;
+
 	post_routing_print(skb, state->in, state->out, __func__);
 
 	if (!mtk_hnat_nf_post_routing(skb, state->out, hnat_ipv6_get_nexthop,
 				      __func__))
 		return NF_ACCEPT;
 
-	trace_printk(
-		"%s:drop (iif=0x%x, out_dev=%s, CB2=0x%x, ppe_hash=0x%x, sport=0x%x, reason=0x%x, alg=0x%x)\n",
-		__func__, skb_hnat_iface(skb), state->out->name, HNAT_SKB_CB2(skb)->magic,
-		skb_hnat_entry(skb), skb_hnat_sport(skb), skb_hnat_reason(skb),
-		skb_hnat_alg(skb));
+drop:
+	if (skb)
+		trace_printk(
+			"%s:drop (iif=0x%x, out_dev=%s, CB2=0x%x, ppe_hash=0x%x, sport=0x%x, reason=0x%x, alg=0x%x)\n",
+			__func__, skb_hnat_iface(skb), state->out->name, HNAT_SKB_CB2(skb)->magic,
+			skb_hnat_entry(skb), skb_hnat_sport(skb), skb_hnat_reason(skb),
+			skb_hnat_alg(skb));
 
 	return NF_DROP;
 }
@@ -2178,17 +2244,22 @@ static unsigned int
 mtk_hnat_ipv4_nf_post_routing(void *priv, struct sk_buff *skb,
 			      const struct nf_hook_state *state)
 {
+	if (!skb)
+		goto drop;
+
 	post_routing_print(skb, state->in, state->out, __func__);
 
 	if (!mtk_hnat_nf_post_routing(skb, state->out, hnat_ipv4_get_nexthop,
 				      __func__))
 		return NF_ACCEPT;
 
-	trace_printk(
-		"%s:drop (iif=0x%x, out_dev=%s, CB2=0x%x, ppe_hash=0x%x, sport=0x%x, reason=0x%x, alg=0x%x)\n",
-		__func__, skb_hnat_iface(skb), state->out->name, HNAT_SKB_CB2(skb)->magic,
-		skb_hnat_entry(skb), skb_hnat_sport(skb), skb_hnat_reason(skb),
-		skb_hnat_alg(skb));
+drop:
+	if (skb)
+		trace_printk(
+			"%s:drop (iif=0x%x, out_dev=%s, CB2=0x%x, ppe_hash=0x%x, sport=0x%x, reason=0x%x, alg=0x%x)\n",
+			__func__, skb_hnat_iface(skb), state->out->name, HNAT_SKB_CB2(skb)->magic,
+			skb_hnat_entry(skb), skb_hnat_sport(skb), skb_hnat_reason(skb),
+			skb_hnat_alg(skb));
 
 	return NF_DROP;
 }
@@ -2197,7 +2268,15 @@ static unsigned int
 mtk_pong_hqos_handler(void *priv, struct sk_buff *skb,
 		      const struct nf_hook_state *state)
 {
-	struct vlan_ethhdr *veth = (struct vlan_ethhdr *)skb_mac_header(skb);
+	struct vlan_ethhdr *veth;
+
+	if (!skb)
+		goto drop;
+
+	if (!is_magic_tag_valid(skb))
+		return NF_ACCEPT;
+
+	veth = (struct vlan_ethhdr *)skb_mac_header(skb);
 
 	if (IS_HQOS_MODE && eth_hdr(skb)->h_proto == HQOS_MAGIC_TAG) {
 		skb_hnat_entry(skb) = ntohs(veth->h_vlan_TCI) & 0x3fff;
@@ -2238,16 +2317,21 @@ static unsigned int
 mtk_hnat_br_nf_local_out(void *priv, struct sk_buff *skb,
 			 const struct nf_hook_state *state)
 {
+	if (!skb)
+		goto drop;
+
 	post_routing_print(skb, state->in, state->out, __func__);
 
 	if (!mtk_hnat_nf_post_routing(skb, state->out, 0, __func__))
 		return NF_ACCEPT;
 
-	trace_printk(
-		"%s:drop (iif=0x%x, out_dev=%s, CB2=0x%x, ppe_hash=0x%x, sport=0x%x, reason=0x%x, alg=0x%x)\n",
-		__func__, skb_hnat_iface(skb), state->out->name, HNAT_SKB_CB2(skb)->magic,
-		skb_hnat_entry(skb), skb_hnat_sport(skb), skb_hnat_reason(skb),
-		skb_hnat_alg(skb));
+drop:
+	if (skb)
+		trace_printk(
+			"%s:drop (iif=0x%x, out_dev=%s, CB2=0x%x, ppe_hash=0x%x, sport=0x%x, reason=0x%x, alg=0x%x)\n",
+			__func__, skb_hnat_iface(skb), state->out->name, HNAT_SKB_CB2(skb)->magic,
+			skb_hnat_entry(skb), skb_hnat_sport(skb), skb_hnat_reason(skb),
+			skb_hnat_alg(skb));
 
 	return NF_DROP;
 }
@@ -2256,24 +2340,19 @@ static unsigned int
 mtk_hnat_ipv4_nf_local_out(void *priv, struct sk_buff *skb,
 			   const struct nf_hook_state *state)
 {
-	struct sk_buff *new_skb;
 	struct foe_entry *entry;
 	struct iphdr *iph;
+
+	if (!is_magic_tag_valid(skb))
+		return NF_ACCEPT;
+
+	if (unlikely(skb_headroom(skb) < FOE_INFO_LEN))
+		return NF_ACCEPT;
 
 	if (!skb_hnat_is_hashed(skb))
 		return NF_ACCEPT;
 
 	entry = &hnat_priv->foe_table_cpu[skb_hnat_ppe(skb)][skb_hnat_entry(skb)];
-
-	if (unlikely(skb_headroom(skb) < FOE_INFO_LEN)) {
-		new_skb = skb_realloc_headroom(skb, FOE_INFO_LEN);
-		if (!new_skb) {
-			dev_info(hnat_priv->dev, "%s:drop\n", __func__);
-			return NF_DROP;
-		}
-		dev_kfree_skb(skb);
-		skb = new_skb;
-	}
 
 	/* Make the flow from local not be bound. */
 	iph = ip_hdr(skb);

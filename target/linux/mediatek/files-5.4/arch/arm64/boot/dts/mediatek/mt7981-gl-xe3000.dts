@@ -25,11 +25,10 @@
 		model = "xe3000";
 		wan = "eth0";
 		lan = "eth1";
-		build-in-modem = "0001:01:00.0,1-1.2";
+		build-in-modem = "0001:01:00.0";
 		pcie-bus = "0001:01:00.0";
 		usb-port = "1-1.3";
-		modem-reset = "0";
-		fan = "hwmon0 cooling_device0";
+		fan = "pwmchip0";
 		flash_size = <7456>;
 		temperature = "/sys/devices/virtual/thermal/thermal_zone0/temp";
 		reset-button = "gpio-456";
@@ -37,14 +36,12 @@
 		mcu = "/dev/ttyS1,9600";
 		cfg-partition = "/dev/mmcblk0p5";
 		dfs;
-		sim = "dual";
 		factory_data {
 			device_mac = "/dev/mmcblk0p3", "0x0a";
 			device_ddns = "/dev/mmcblk0p3", "0x10";
 			device_sn_bak = "/dev/mmcblk0p3", "0x20";
 			device_sn = "/dev/mmcblk0p3", "0x30";
 			country_code = "/dev/mmcblk0p3", "0x88";
-			device_cert = "/dev/mmcblk0p3", "0x1000";
 		};
 	};
 
@@ -82,8 +79,14 @@
 
 		5G_reset {
 			gpio-export,name = "5G_reset";
-			gpio-export,output = <0>;
+			gpio-export,output = <1>;
 			gpios = <&pio 10 GPIO_ACTIVE_HIGH>;
+		};
+
+		fan_power {
+			gpio-export,name = "fan_power";
+			gpio-export,output = <1>;
+			gpios = <&pio 28 GPIO_ACTIVE_HIGH>;
 		};
 	};
 
@@ -139,22 +142,18 @@
 		};
 	};
 
-	fan_5v: regulator-fan-5v {
-		compatible = "regulator-fixed";
-		regulator-name = "fan";
-		regulator-min-microvolt = <5000000>;
-		regulator-max-microvolt = <5000000>;
-		gpio = <&pio 28 GPIO_ACTIVE_HIGH>;
-		enable-active-high;
+	gl_fan {
+		compatible = "gl-fan";
+		interrupt-parent = <&pio>;
+		interrupts = <29 IRQ_TYPE_EDGE_RISING>;
 	};
 
 	pwm-fan {
 		compatible = "pwm-fan";
+		cooling-min-state = <0>;
+		cooling-max-state = <255>;
 		#cooling-cells = <2>;
 		pwms = <&pwm 0 40000 0>;
-		fan-supply = <&fan_5v>;
-		interrupt-parent = <&pio>;
-		interrupts = <29 IRQ_TYPE_EDGE_RISING>;
 		cooling-levels = <0 36 36 36 36 36 36 36 36 36 36 36 36 36 36 36 36 36 36 36
 				36 36 36 36 36 36 36 36 36 36 36 36 36 36 36 36 36 37 38 39
 				40 41 42 43 44 45 46 47 48 49 50 51 52 53 54 55 56 57 58 59

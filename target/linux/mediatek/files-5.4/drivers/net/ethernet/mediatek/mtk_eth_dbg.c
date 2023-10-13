@@ -319,42 +319,10 @@ static ssize_t mtketh_debugfs_reset(struct file *file, const char __user *ptr,
 				    size_t len, loff_t *off)
 {
 	struct mtk_eth *eth = file->private_data;
-	char buf[8] = "";
-	int count = len;
-	unsigned long dbg_level = 0;
 
-	len = min(count, sizeof(buf) - 1);
-	if (copy_from_user(buf, ptr, len))
-		return -EFAULT;
-
-	buf[len] = '\0';
-	if (kstrtoul(buf, 0, &dbg_level))
-		return -EINVAL;
-
-	switch(dbg_level)
-	{
-		case 0:
-			if (atomic_read(&reset_lock) == 0)
-				atomic_inc(&reset_lock);
-			break;
-		case 1:
-			if (atomic_read(&force) == 0)
-				atomic_inc(&force);
-			schedule_work(&eth->pending_work);
-			break;
-		case 2:
-			if (atomic_read(&reset_lock) == 1)
-				atomic_dec(&reset_lock);
-			break;
-		default:
-			pr_info("Usage: echo [level] > /sys/kernel/debug/mtketh/reset\n");
-			pr_info("Commands:	 [level] \n");
-			pr_info("			   0	 disable reset \n");
-			pr_info("			   1	 force reset \n");
-			pr_info("			   2	 enable reset\n");
-			break;
-	}
-	return count;
+	atomic_inc(&force);
+	schedule_work(&eth->pending_work);
+	return len;
 }
 
 static const struct file_operations fops_reg_w = {
@@ -663,32 +631,38 @@ static struct proc_dir_entry *proc_tx_ring, *proc_hwtx_ring, *proc_rx_ring;
 
 int tx_ring_read(struct seq_file *seq, void *v)
 {
-	struct mtk_eth *eth = g_eth;
 	struct mtk_tx_ring *ring = &g_eth->tx_ring;
-	struct mtk_tx_dma_v2 *tx_ring;
+	struct mtk_tx_dma *tx_ring;
 	int i = 0;
+
+	tx_ring =
+	    kmalloc(sizeof(struct mtk_tx_dma) * MTK_DMA_SIZE, GFP_KERNEL);
+	if (!tx_ring) {
+		seq_puts(seq, " allocate temp tx_ring fail.\n");
+		return 0;
+	}
+
+	for (i = 0; i < MTK_DMA_SIZE; i++)
+		tx_ring[i] = ring->dma[i];
 
 	seq_printf(seq, "free count = %d\n", (int)atomic_read(&ring->free_count));
 	seq_printf(seq, "cpu next free: %d\n", (int)(ring->next_free - ring->dma));
 	seq_printf(seq, "cpu last free: %d\n", (int)(ring->last_free - ring->dma));
 	for (i = 0; i < MTK_DMA_SIZE; i++) {
-		dma_addr_t tmp = ring->phys + i * eth->soc->txrx.txd_size;
-
-		tx_ring = ring->dma + i * eth->soc->txrx.txd_size;
+		dma_addr_t tmp = ring->phys + i * sizeof(*tx_ring);
 
 		seq_printf(seq, "%d (%pad): %08x %08x %08x %08x", i, &tmp,
-			   tx_ring->txd1, tx_ring->txd2,
-			   tx_ring->txd3, tx_ring->txd4);
-
-		if (MTK_HAS_CAPS(eth->soc->caps, MTK_NETSYS_V2)) {
-			seq_printf(seq, " %08x %08x %08x %08x",
-				   tx_ring->txd5, tx_ring->txd6,
-				   tx_ring->txd7, tx_ring->txd8);
-		}
-
+			   *(int *)&tx_ring[i].txd1, *(int *)&tx_ring[i].txd2,
+			   *(int *)&tx_ring[i].txd3, *(int *)&tx_ring[i].txd4);
+#if defined(CONFIG_MEDIATEK_NETSYS_V2)
+		seq_printf(seq, " %08x %08x %08x %08x",
+			   *(int *)&tx_ring[i].txd5, *(int *)&tx_ring[i].txd6,
+			   *(int *)&tx_ring[i].txd7, *(int *)&tx_ring[i].txd8);
+#endif
 		seq_printf(seq, "\n");
 	}
 
+	kfree(tx_ring);
 	return 0;
 }
 
@@ -708,27 +682,34 @@ static const struct file_operations tx_ring_fops = {
 int hwtx_ring_read(struct seq_file *seq, void *v)
 {
 	struct mtk_eth *eth = g_eth;
-	struct mtk_tx_dma_v2 *hwtx_ring;
+	struct mtk_tx_dma *hwtx_ring;
 	int i = 0;
 
-	for (i = 0; i < MTK_DMA_SIZE; i++) {
-		dma_addr_t addr = eth->phy_scratch_ring + i * eth->soc->txrx.txd_size;
+	hwtx_ring =
+	    kmalloc(sizeof(struct mtk_tx_dma) * MTK_DMA_SIZE, GFP_KERNEL);
+	if (!hwtx_ring) {
+		seq_puts(seq, " allocate temp hwtx_ring fail.\n");
+		return 0;
+	}
 
-		hwtx_ring = eth->scratch_ring + i * eth->soc->txrx.txd_size;
+	for (i = 0; i < MTK_DMA_SIZE; i++)
+		hwtx_ring[i] = eth->scratch_ring[i];
+
+	for (i = 0; i < MTK_DMA_SIZE; i++) {
+		dma_addr_t addr = eth->phy_scratch_ring + i * sizeof(*hwtx_ring);
 
 		seq_printf(seq, "%d (%pad): %08x %08x %08x %08x", i, &addr,
-			   hwtx_ring->txd1, hwtx_ring->txd2,
-			   hwtx_ring->txd3, hwtx_ring->txd4);
-
-		if (MTK_HAS_CAPS(eth->soc->caps, MTK_NETSYS_V2)) {
-			seq_printf(seq, " %08x %08x %08x %08x",
-				   hwtx_ring->txd5, hwtx_ring->txd6,
-				   hwtx_ring->txd7, hwtx_ring->txd8);
-		}
-
+			   *(int *)&hwtx_ring[i].txd1, *(int *)&hwtx_ring[i].txd2,
+			   *(int *)&hwtx_ring[i].txd3, *(int *)&hwtx_ring[i].txd4);
+#if defined(CONFIG_MEDIATEK_NETSYS_V2)
+		seq_printf(seq, " %08x %08x %08x %08x",
+			   *(int *)&hwtx_ring[i].txd5, *(int *)&hwtx_ring[i].txd6,
+			   *(int *)&hwtx_ring[i].txd7, *(int *)&hwtx_ring[i].txd8);
+#endif
 		seq_printf(seq, "\n");
 	}
 
+	kfree(hwtx_ring);
 	return 0;
 }
 
@@ -747,29 +728,36 @@ static const struct file_operations hwtx_ring_fops = {
 
 int rx_ring_read(struct seq_file *seq, void *v)
 {
-	struct mtk_eth *eth = g_eth;
 	struct mtk_rx_ring *ring = &g_eth->rx_ring[0];
-	struct mtk_rx_dma_v2 *rx_ring;
+	struct mtk_rx_dma *rx_ring;
+
 	int i = 0;
+
+	rx_ring =
+	    kmalloc(sizeof(struct mtk_rx_dma) * MTK_DMA_SIZE, GFP_KERNEL);
+	if (!rx_ring) {
+		seq_puts(seq, " allocate temp rx_ring fail.\n");
+		return 0;
+	}
+
+	for (i = 0; i < MTK_DMA_SIZE; i++)
+		rx_ring[i] = ring->dma[i];
 
 	seq_printf(seq, "next to read: %d\n",
 		   NEXT_DESP_IDX(ring->calc_idx, MTK_DMA_SIZE));
 	for (i = 0; i < MTK_DMA_SIZE; i++) {
-		rx_ring = ring->dma + i * eth->soc->txrx.rxd_size;
-
 		seq_printf(seq, "%d: %08x %08x %08x %08x", i,
-			   rx_ring->rxd1, rx_ring->rxd2,
-			   rx_ring->rxd3, rx_ring->rxd4);
-
-		if (MTK_HAS_CAPS(eth->soc->caps, MTK_NETSYS_V2)) {
-			seq_printf(seq, " %08x %08x %08x %08x",
-				   rx_ring->rxd5, rx_ring->rxd6,
-				   rx_ring->rxd7, rx_ring->rxd8);
-		}
-
+			   *(int *)&rx_ring[i].rxd1, *(int *)&rx_ring[i].rxd2,
+			   *(int *)&rx_ring[i].rxd3, *(int *)&rx_ring[i].rxd4);
+#if defined(CONFIG_MEDIATEK_NETSYS_V2)
+		seq_printf(seq, " %08x %08x %08x %08x",
+			   *(int *)&rx_ring[i].rxd5, *(int *)&rx_ring[i].rxd6,
+			   *(int *)&rx_ring[i].rxd7, *(int *)&rx_ring[i].rxd8);
+#endif
 		seq_printf(seq, "\n");
 	}
 
+	kfree(rx_ring);
 	return 0;
 }
 
@@ -914,18 +902,17 @@ static const struct file_operations dbg_regs_fops = {
 	.release = single_release
 };
 
-void hw_lro_stats_update(u32 ring_no, struct mtk_rx_dma_v2 *rxd)
+void hw_lro_stats_update(u32 ring_no, struct mtk_rx_dma *rxd)
 {
-	struct mtk_eth *eth = g_eth;
 	u32 idx, agg_cnt, agg_size;
 
-	if (MTK_HAS_CAPS(eth->soc->caps, MTK_NETSYS_V2)) {
-		idx = ring_no - 4;
-		agg_cnt = RX_DMA_GET_AGG_CNT_V2(rxd->rxd6);
-	} else {
-		idx = ring_no - 1;
-		agg_cnt = RX_DMA_GET_AGG_CNT(rxd->rxd2);
-	}
+#if defined(CONFIG_MEDIATEK_NETSYS_V2)
+	idx = ring_no - 4;
+	agg_cnt = RX_DMA_GET_AGG_CNT_V2(rxd->rxd6);
+#else
+	idx = ring_no - 1;
+	agg_cnt = RX_DMA_GET_AGG_CNT(rxd->rxd2);
+#endif
 
 	agg_size = RX_DMA_GET_PLEN0(rxd->rxd2);
 
@@ -935,18 +922,17 @@ void hw_lro_stats_update(u32 ring_no, struct mtk_rx_dma_v2 *rxd)
 	hw_lro_tot_agg_cnt[idx] += agg_cnt;
 }
 
-void hw_lro_flush_stats_update(u32 ring_no, struct mtk_rx_dma_v2 *rxd)
+void hw_lro_flush_stats_update(u32 ring_no, struct mtk_rx_dma *rxd)
 {
-	struct mtk_eth *eth = g_eth;
 	u32 idx, flush_reason;
 
-	if (MTK_HAS_CAPS(eth->soc->caps, MTK_NETSYS_V2)) {
-		idx = ring_no - 4;
-		flush_reason = RX_DMA_GET_FLUSH_RSN_V2(rxd->rxd6);
-	} else {
-		idx = ring_no - 1;
-		flush_reason = RX_DMA_GET_REV(rxd->rxd2);
-	}
+#if defined(CONFIG_MEDIATEK_NETSYS_V2)
+	idx = ring_no - 4;
+	flush_reason = RX_DMA_GET_FLUSH_RSN_V2(rxd->rxd6);
+#else
+	idx = ring_no - 1;
+	flush_reason = RX_DMA_GET_REV(rxd->rxd2);
+#endif
 
 	if ((flush_reason & 0x7) == MTK_HW_LRO_AGG_FLUSH)
 		hw_lro_agg_flush_cnt[idx]++;

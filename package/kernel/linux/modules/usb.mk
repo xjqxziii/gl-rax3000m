@@ -1106,6 +1106,7 @@ endef
 
 define KernelPackage/usb-net-aqc111
   TITLE:=Support for USB-to-Ethernet Aquantia AQtion 5/2.5GbE
+  DEPENDS:=+kmod-libphy
   KCONFIG:=CONFIG_USB_NET_AQC111
   FILES:=$(LINUX_DIR)/drivers/$(USBNET_DIR)/aqc111.ko
   AUTOLOAD:=$(call AutoProbe,aqc111)

@@ -12,29 +12,6 @@
 		led-upgrade = &green_led;
 	};
 
-
-	gl-hw {
-                compatible = "gl-hw-info";
-                model = "mt3000";
-                wan = "eth1";
-                lan = "eth0";
-                temperature = "/sys/devices/virtual/thermal/thermal_zone0/temp";
-                switch-button = "gpio-455";
-                reset-button = "gpio-456";
-                radio = "mt798111 mt798112";
-                cfg-partition = "/dev/mtd7";
-                flash_size = <128>;
-		dfs;
-                factory_data {
-                        device_mac = "stock-factory", "0xb0";
-                        device_ddns = "stock-factory", "0xc0";
-                        device_sn_bak = "stock-factory", "0xd0";
-                        device_sn = "stock-factory", "0xe0";
-                        country_code = "stock-factory", "0x7a";
-                };
-        };
-
-
 	chosen {
 		bootargs = "console=ttyS0,115200n1 loglevel=8  \
 				earlycon=uart8250,mmio32,0x11002000";
@@ -115,11 +92,11 @@
 			pause;
 		};
 	};
+
 	mdio: mdio-bus {
 		#address-cells = <1>;
 		#size-cells = <0>;
 	};
-
 };
 
 &gsw {
@@ -155,9 +132,8 @@
 };
 
 &hnat {
-	mtketh-wan = "eth0";
-	mtketh-lan = "eth1";
-	mtketh-ppd = "eth1";
+	mtketh-wan = "eth1";
+	mtketh-lan = "eth0";
 	mtketh-max-gmac = <2>;
 	status = "okay";
 };
@@ -173,8 +149,8 @@
 		compatible = "spi-nand";
 		reg = <0>;
 		spi-max-frequency = <52000000>;
-		spi-tx-buswidth = <4>;
-		spi-rx-buswidth = <4>;
+		spi-tx-bus-width = <4>;
+		spi-rx-bus-width = <4>;
 		spi-cal-enable;
 		spi-cal-mode = "read-data";
 		spi-cal-datalen = <7>;
@@ -239,4 +215,3 @@
 		};
 	};
 };
-

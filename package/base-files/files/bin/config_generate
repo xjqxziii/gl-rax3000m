@@ -96,7 +96,7 @@ generate_network() {
 
 	json_select network
 		json_select "$1"
-			json_get_vars device macaddr protocol ipaddr netmask vlan
+			json_get_vars device macaddr metric protocol ipaddr netmask vlan
 			json_get_values ports ports
 		json_select ..
 	json_select ..
@@ -154,6 +154,7 @@ generate_network() {
 		set network.$1='interface'
 		set network.$1.type='$type'
 		set network.$1.device='$device'
+		set network.$1.metric='$metric'
 		set network.$1.proto='none'
 	EOF
 
@@ -301,20 +302,20 @@ generate_static_system() {
 	uci -q batch <<-EOF
 		delete system.@system[0]
 		add system system
-		set system.@system[-1].hostname='OpenWrt'
+		set system.@system[-1].hostname='ImmortalWrt'
 		set system.@system[-1].timezone='UTC'
 		set system.@system[-1].ttylogin='0'
-		set system.@system[-1].log_size='64'
+		set system.@system[-1].log_size='512'
 		set system.@system[-1].urandom_seed='0'
 
 		delete system.ntp
 		set system.ntp='timeserver'
 		set system.ntp.enabled='1'
 		set system.ntp.enable_server='0'
-		add_list system.ntp.server='0.openwrt.pool.ntp.org'
-		add_list system.ntp.server='1.openwrt.pool.ntp.org'
-		add_list system.ntp.server='2.openwrt.pool.ntp.org'
-		add_list system.ntp.server='3.openwrt.pool.ntp.org'
+		add_list system.ntp.server='time1.apple.com'
+		add_list system.ntp.server='time1.google.com'
+		add_list system.ntp.server='time.cloudflare.com'
+		add_list system.ntp.server='pool.ntp.org'
 	EOF
 
 	if json_is_a system object; then
