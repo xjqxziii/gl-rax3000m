@@ -11,6 +11,11 @@ board=$(board_name)
 board_config_update
 
 case "$board" in
+*rax3000m-emmc)
+	ucidef_set_led_default "power" "POWER" "rax3000m:red" "0"
+	ucidef_set_led_default "network" "NETWORK" "rax3000m:blue" "0"
+	ucidef_set_led_default "system" "SYSTEM" "rax3000m:green" "1"
+	;;
 clt,r30b1)
 	ucidef_set_led_default "green" "GREEN" "r30b1:green" "1"
 	ucidef_set_led_default "red" "RED" "r30b1:red" "0"
